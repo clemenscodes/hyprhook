@@ -1,5 +1,5 @@
 use tokio::{process::Command, sync::mpsc};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 const HOOK_QUEUE_CAPACITY: usize = 64;
 
@@ -28,12 +28,16 @@ pub fn enqueue_hooks(hook_sender: &HookSender, commands: &[Vec<String>]) {
 
 pub async fn run_hook_worker(mut hook_receiver: mpsc::Receiver<HookCommand>) {
     while let Some(HookCommand { argv }) = hook_receiver.recv().await {
-        let Some((program, args)) = argv.split_first() else { continue };
+        let Some((program, args)) = argv.split_first() else {
+            continue;
+        };
         info!(command = program, "running hook");
         let result = Command::new(program).args(args).status().await;
         match result {
             Ok(status) if status.success() => {}
-            Ok(status) => warn!(command = program, exit_status = %status, "hook exited with non-zero status"),
+            Ok(status) => {
+                warn!(command = program, exit_status = %status, "hook exited with non-zero status")
+            }
             Err(err) => error!(command = program, %err, "hook failed to spawn"),
         }
     }

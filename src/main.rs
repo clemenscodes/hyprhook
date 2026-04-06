@@ -21,7 +21,10 @@ mod hook;
 mod rule;
 mod state;
 
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use args::Args;
 use clap::Parser;
@@ -51,12 +54,10 @@ async fn main() -> hyprland::Result<()> {
     let config_path = config_path_override.unwrap_or_else(Config::default_path);
     let config = Config::load(&config_path, is_explicit);
 
-    let rules: Arc<Vec<Rule>> = Arc::new(
-        config.into_rules().unwrap_or_else(|error| {
-            error!(%error, "invalid regex in config");
-            std::process::exit(1);
-        }),
-    );
+    let rules: Arc<Vec<Rule>> = Arc::new(config.into_rules().unwrap_or_else(|error| {
+        error!(%error, "invalid regex in config");
+        std::process::exit(1);
+    }));
 
     info!(count = rules.len(), config = %config_path, "loaded rules");
 

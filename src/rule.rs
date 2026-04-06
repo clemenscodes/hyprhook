@@ -29,12 +29,20 @@ impl Rule {
     }
 
     pub fn matches(&self, class: &str, title: &str) -> bool {
-        self.class.as_ref().is_none_or(|regex| regex.is_match(class))
-            && self.title.as_ref().is_none_or(|regex| regex.is_match(title))
+        self.class
+            .as_ref()
+            .is_none_or(|regex| regex.is_match(class))
+            && self
+                .title
+                .as_ref()
+                .is_none_or(|regex| regex.is_match(title))
     }
 
     pub fn matching<'a>(rules: &'a [Self], class: &str, title: &str) -> Vec<&'a Self> {
-        rules.iter().filter(|rule| rule.matches(class, title)).collect()
+        rules
+            .iter()
+            .filter(|rule| rule.matches(class, title))
+            .collect()
     }
 
     pub fn on_open(&self) -> &[Vec<String>] {
