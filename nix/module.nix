@@ -60,9 +60,9 @@ self: {
     };
   };
 
-  # Strip null and unset fields so the TOML stays clean.
+  # Strip null and empty-list fields so the TOML stays clean.
   serializeRule = rule:
-    lib.filterAttrs (_: v: v != null) {
+    lib.filterAttrs (_: v: v != null && v != []) {
       inherit (rule) class title on_open on_close on_focus on_unfocus;
     };
 
