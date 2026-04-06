@@ -121,18 +121,14 @@ in {
     environment.systemPackages = [wrappedPackage];
 
     systemd.user.services.hyprhook = {
-      Unit = {
-        Description = "hyprhook Hyprland window focus hook runner";
-        PartOf = ["graphical-session.target"];
-        After = ["graphical-session.target"];
-      };
-      Service = {
+      description = "hyprhook Hyprland window focus hook runner";
+      partOf = ["graphical-session.target"];
+      after = ["graphical-session.target"];
+      wantedBy = ["graphical-session.target"];
+      serviceConfig = {
         ExecStart = "${wrappedPackage}/bin/hyprhook";
         Restart = "on-failure";
         PassEnvironment = "PATH";
-      };
-      Install = {
-        WantedBy = ["graphical-session.target"];
       };
     };
   };
