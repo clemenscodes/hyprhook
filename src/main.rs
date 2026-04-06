@@ -196,6 +196,11 @@ async fn main() -> hyprland::Result<()> {
 
     eprintln!("hyprhook: loaded {} rule(s) from {}", rules.len(), config_path);
 
+    if rules.is_empty() {
+        eprintln!("hyprhook: no rules configured, nothing to do");
+        return Ok(());
+    }
+
     // Seed the open-windows map from whatever is already running.
     let mut open: HashMap<String, (String, String)> = HashMap::new();
     if let Ok(clients) = Clients::get() {
@@ -293,5 +298,12 @@ async fn main() -> hyprland::Result<()> {
         });
     }
 
-    listener.start_listener_async().await
+    listener.start_listener_async().await.map_err(|e| {
+        eprintln!(
+            "hyprhook: failed to connect to Hyprland IPC socket: {}\n\
+             Is Hyprland running? Is HYPRLAND_INSTANCE_SIGNATURE set?",
+            e
+        );
+        e
+    })
 }
