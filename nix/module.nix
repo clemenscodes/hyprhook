@@ -6,7 +6,7 @@ self: {
 }: let
   cfg = config.services.hyprhook;
 
-  commandType = lib.types.nonEmptyListOf lib.types.str;
+  commandType = lib.types.listOf lib.types.str;
 
   ruleType = lib.types.submodule {
     options = {
