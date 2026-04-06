@@ -75,3 +75,103 @@ fn validate_commands(commands: &[Vec<String>], field: &str) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(toml: &str) -> Vec<Rule> {
+        toml::from_str::<Config>(toml).unwrap().into_rules().unwrap()
+    }
+
+    #[test]
+    fn empty_config_produces_no_rules() {
+        let rules = parse("");
+        assert!(rules.is_empty());
+    }
+
+    #[test]
+    fn rule_with_class_and_title_compiles() {
+        let rules = parse(r#"
+            [[rule]]
+            class = "^gamescope$"
+            title = "Counter-Strike 2"
+        "#);
+        assert_eq!(rules.len(), 1);
+        assert!(rules[0].matches("gamescope", "Counter-Strike 2"));
+        assert!(!rules[0].matches("other", "Counter-Strike 2"));
+    }
+
+    #[test]
+    fn rule_with_only_class_compiles() {
+        let rules = parse(r#"
+            [[rule]]
+            class = "^firefox$"
+        "#);
+        assert_eq!(rules.len(), 1);
+        assert!(rules[0].matches("firefox", "any title"));
+        assert!(!rules[0].matches("other", "any title"));
+    }
+
+    #[test]
+    fn commands_survive_round_trip() {
+        let rules = parse(r#"
+            [[rule]]
+            class = "^gamescope$"
+            on_focus = [["hyprctl", "dispatch", "submap", "gaming"]]
+            on_unfocus = [["hyprctl", "dispatch", "submap", "reset"]]
+        "#);
+        assert_eq!(rules[0].on_focus(), &[vec![
+            "hyprctl".to_owned(), "dispatch".to_owned(),
+            "submap".to_owned(), "gaming".to_owned(),
+        ]]);
+        assert_eq!(rules[0].on_unfocus(), &[vec![
+            "hyprctl".to_owned(), "dispatch".to_owned(),
+            "submap".to_owned(), "reset".to_owned(),
+        ]]);
+        assert!(rules[0].on_open().is_empty());
+        assert!(rules[0].on_close().is_empty());
+    }
+
+    #[test]
+    fn multiple_rules_all_compile() {
+        let rules = parse(r#"
+            [[rule]]
+            class = "^gamescope$"
+
+            [[rule]]
+            class = "^firefox$"
+        "#);
+        assert_eq!(rules.len(), 2);
+    }
+
+    #[test]
+    fn multiple_commands_per_event_are_preserved() {
+        let rules = parse(r#"
+            [[rule]]
+            class = "^foo$"
+            on_open = [["cmd1", "arg1"], ["cmd2", "arg2"]]
+        "#);
+        assert_eq!(rules[0].on_open().len(), 2);
+        assert_eq!(rules[0].on_open()[0][0], "cmd1");
+        assert_eq!(rules[0].on_open()[1][0], "cmd2");
+    }
+
+    #[test]
+    fn invalid_class_regex_returns_error() {
+        let config: Config = toml::from_str(r#"
+            [[rule]]
+            class = "[invalid"
+        "#).unwrap();
+        assert!(config.into_rules().is_err());
+    }
+
+    #[test]
+    fn invalid_title_regex_returns_error() {
+        let config: Config = toml::from_str(r#"
+            [[rule]]
+            title = "[invalid"
+        "#).unwrap();
+        assert!(config.into_rules().is_err());
+    }
+}
