@@ -30,7 +30,7 @@ pub fn enqueue_hooks(hook_sender: &HookSender, commands: &[String], class: &str,
 pub async fn run_hook_worker(mut hook_receiver: mpsc::Receiver<HookCommand>) {
     while let Some(HookCommand { command, class, title }) = hook_receiver.recv().await {
         eprintln!("hyprhook: running {command:?}");
-        let result = Command::new("sh")
+        let result = Command::new("/bin/sh")
             .arg("-c")
             .arg(&command)
             .env("HYPRHOOK_WINDOW_CLASS", &class)
