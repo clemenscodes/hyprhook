@@ -26,8 +26,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use args::Args;
-use clap::Parser;
+use args::{Action, Args};
+use clap::{CommandFactory, Parser};
 use config::Config;
 use hook::{create_hook_channel, run_hook_worker};
 use hyprland::{
@@ -49,7 +49,13 @@ async fn main() -> hyprland::Result<()> {
         .init();
 
     let args = Args::parse();
-    let config_path_override = args.config_path();
+
+    if let Some(Action::Completions { shell }) = args.subcommand() {
+        clap_complete::generate(*shell, &mut Args::command(), "hyprhook", &mut std::io::stdout());
+        return Ok(());
+    }
+
+    let config_path_override = args.config_path().map(str::to_owned);
     let is_explicit = config_path_override.is_some();
     let config_path = config_path_override.unwrap_or_else(Config::default_path);
     let config = Config::load(&config_path, is_explicit);

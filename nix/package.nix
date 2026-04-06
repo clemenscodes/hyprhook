@@ -1,6 +1,7 @@
 {
   lib,
   craneLib,
+  installShellFiles,
 }: let
   src = lib.fileset.toSource {
     root = ../.;
@@ -22,6 +23,13 @@ in
     // {
       inherit cargoArtifacts;
       CARGO_BUILD_RUSTFLAGS = "-C strip=symbols";
+      nativeBuildInputs = [installShellFiles];
+      postInstall = ''
+        installShellCompletion --cmd hyprhook \
+          --bash <($out/bin/hyprhook completions bash) \
+          --fish <($out/bin/hyprhook completions fish) \
+          --zsh <($out/bin/hyprhook completions zsh)
+      '';
       passthru = {inherit src commonArgs cargoArtifacts;};
     }
   )
