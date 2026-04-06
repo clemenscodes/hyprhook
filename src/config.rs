@@ -50,6 +50,10 @@ impl Config {
         self.rule
             .into_iter()
             .map(|rule_config| {
+                validate_commands(&rule_config.on_open, "on_open");
+                validate_commands(&rule_config.on_close, "on_close");
+                validate_commands(&rule_config.on_focus, "on_focus");
+                validate_commands(&rule_config.on_unfocus, "on_unfocus");
                 Rule::new(
                     rule_config.class.as_deref(),
                     rule_config.title.as_deref(),
@@ -60,5 +64,14 @@ impl Config {
                 )
             })
             .collect()
+    }
+}
+
+fn validate_commands(commands: &[Vec<String>], field: &str) {
+    for argv in commands {
+        if argv.is_empty() {
+            error!(field, "empty command in config — each command must have at least one element");
+            std::process::exit(1);
+        }
     }
 }

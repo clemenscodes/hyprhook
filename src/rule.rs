@@ -1,4 +1,5 @@
 use regex::Regex;
+use tracing::warn;
 
 pub struct Rule {
     class: Option<Regex>,
@@ -18,6 +19,9 @@ impl Rule {
         on_focus: Vec<Vec<String>>,
         on_unfocus: Vec<Vec<String>>,
     ) -> Result<Self, regex::Error> {
+        if class.is_none() && title.is_none() {
+            warn!("rule with no class or title filter matches every window event");
+        }
         Ok(Self {
             class: class.map(Regex::new).transpose()?,
             title: title.map(Regex::new).transpose()?,

@@ -105,25 +105,3 @@ Each entry in `rules`:
 
 Each `argv` is a non-empty list of strings: `["executable", "arg1", "arg2", ...]`.
 
-## CymenixOS
-
-If you are using [CymenixOS](https://github.com/clemenscodes/cymenixos), hyprhook is available under `modules.io.hyprhook`:
-
-```nix
-modules.io = {
-  enable = true;
-  hyprhook = {
-    enable = true;
-    rules = [
-      {
-        class      = "^gamescope$";
-        title      = "Counter-Strike 2";
-        on_focus   = [["hyprctl" "dispatch" "submap" "gaming"]];
-        on_unfocus = [["hyprctl" "dispatch" "submap" "reset"]];
-      }
-    ];
-  };
-};
-```
-
-The CymenixOS module automatically adds `exec-once` to your Hyprland config.

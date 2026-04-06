@@ -29,7 +29,7 @@ use std::{
 use args::Args;
 use clap::Parser;
 use config::Config;
-use hook::{create_hook_channel, enqueue_hooks, run_hook_worker};
+use hook::{create_hook_channel, run_hook_worker};
 use hyprland::{
     data::{Client, Clients},
     event_listener::AsyncEventListener,
@@ -101,7 +101,7 @@ async fn main() -> hyprland::Result<()> {
                 let info = WindowInfo::new(class.clone(), title.clone());
                 state.lock().unwrap().insert_open(address, info);
                 for rule in Rule::matching(&rules, &class, &title) {
-                    enqueue_hooks(&hook_sender, rule.on_open());
+                    hook_sender.enqueue(rule.on_open());
                 }
             })
         });
@@ -119,7 +119,7 @@ async fn main() -> hyprland::Result<()> {
                 let key = address.to_string();
                 if let Some(info) = state.lock().unwrap().remove_open(&key) {
                     for rule in Rule::matching(&rules, info.class(), info.title()) {
-                        enqueue_hooks(&hook_sender, rule.on_close());
+                        hook_sender.enqueue(rule.on_close());
                     }
                 }
             })
@@ -143,10 +143,10 @@ async fn main() -> hyprland::Result<()> {
                 let new_title = new_info.title().to_owned();
                 let previous_info = state.lock().unwrap().update_focus(new_info);
                 for rule in Rule::matching(&rules, previous_info.class(), previous_info.title()) {
-                    enqueue_hooks(&hook_sender, rule.on_unfocus());
+                    hook_sender.enqueue(rule.on_unfocus());
                 }
                 for rule in Rule::matching(&rules, &new_class, &new_title) {
-                    enqueue_hooks(&hook_sender, rule.on_focus());
+                    hook_sender.enqueue(rule.on_focus());
                 }
             })
         });
