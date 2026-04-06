@@ -13,13 +13,13 @@ struct RuleConfig {
     class: Option<String>,
     title: Option<String>,
     #[serde(default)]
-    on_open: Vec<Vec<String>>,
+    on_open: Vec<String>,
     #[serde(default)]
-    on_close: Vec<Vec<String>>,
+    on_close: Vec<String>,
     #[serde(default)]
-    on_focus: Vec<Vec<String>>,
+    on_focus: Vec<String>,
     #[serde(default)]
-    on_unfocus: Vec<Vec<String>>,
+    on_unfocus: Vec<String>,
 }
 
 impl Config {
@@ -50,10 +50,6 @@ impl Config {
         self.rule
             .into_iter()
             .map(|rule_config| {
-                validate_commands(&rule_config.on_open, "on_open");
-                validate_commands(&rule_config.on_close, "on_close");
-                validate_commands(&rule_config.on_focus, "on_focus");
-                validate_commands(&rule_config.on_unfocus, "on_unfocus");
                 Rule::new(
                     rule_config.class.as_deref(),
                     rule_config.title.as_deref(),
@@ -64,15 +60,6 @@ impl Config {
                 )
             })
             .collect()
-    }
-}
-
-fn validate_commands(commands: &[Vec<String>], field: &str) {
-    for argv in commands {
-        if argv.is_empty() {
-            error!(field, "empty command in config — each command must have at least one element");
-            std::process::exit(1);
-        }
     }
 }
 
@@ -118,17 +105,17 @@ mod tests {
         let rules = parse(r#"
             [[rule]]
             class = "^gamescope$"
-            on_focus = [["hyprctl", "dispatch", "submap", "gaming"]]
-            on_unfocus = [["hyprctl", "dispatch", "submap", "reset"]]
+            on_focus = ["hyprctl", "dispatch", "submap", "gaming"]
+            on_unfocus = ["hyprctl", "dispatch", "submap", "reset"]
         "#);
-        assert_eq!(rules[0].on_focus(), &[vec![
+        assert_eq!(rules[0].on_focus(), &[
             "hyprctl".to_owned(), "dispatch".to_owned(),
             "submap".to_owned(), "gaming".to_owned(),
-        ]]);
-        assert_eq!(rules[0].on_unfocus(), &[vec![
+        ]);
+        assert_eq!(rules[0].on_unfocus(), &[
             "hyprctl".to_owned(), "dispatch".to_owned(),
             "submap".to_owned(), "reset".to_owned(),
-        ]]);
+        ]);
         assert!(rules[0].on_open().is_empty());
         assert!(rules[0].on_close().is_empty());
     }
@@ -143,18 +130,6 @@ mod tests {
             class = "^firefox$"
         "#);
         assert_eq!(rules.len(), 2);
-    }
-
-    #[test]
-    fn multiple_commands_per_event_are_preserved() {
-        let rules = parse(r#"
-            [[rule]]
-            class = "^foo$"
-            on_open = [["cmd1", "arg1"], ["cmd2", "arg2"]]
-        "#);
-        assert_eq!(rules[0].on_open().len(), 2);
-        assert_eq!(rules[0].on_open()[0][0], "cmd1");
-        assert_eq!(rules[0].on_open()[1][0], "cmd2");
     }
 
     #[test]

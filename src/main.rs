@@ -3,17 +3,16 @@
 //! Config example (~/.config/hyprhook/config.toml):
 //!
 //!   [[rule]]
-//!   class     = "gamescope"
-//!   title     = "Counter-Strike 2"
-//!   on_open   = [["obs-cli", "start-recording"]]
-//!   on_close  = [["obs-cli", "stop-recording"]]
-//!   on_focus  = [["hyprctl", "dispatch", "submap", "gaming"]]
-//!   on_unfocus = [["hyprctl", "dispatch", "submap", "reset"]]
+//!   class      = "gamescope"
+//!   title      = "Counter-Strike 2"
+//!   on_open    = ["obs-cli", "start-recording"]
+//!   on_close   = ["obs-cli", "stop-recording"]
+//!   on_focus   = ["hyprctl", "dispatch", "submap", "gaming"]
+//!   on_unfocus = ["hyprctl", "dispatch", "submap", "reset"]
 //!
 //! All four event types are optional — omit any you don't need.
-//!
-//! Each command is an argv list: the first element is the executable
-//! (use an absolute path when not on PATH), the rest are arguments.
+//! The first element is the executable, the rest are arguments.
+//! To run multiple commands on one event, define multiple rules.
 
 mod args;
 mod config;

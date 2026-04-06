@@ -12,12 +12,13 @@ pub struct HookSender {
 }
 
 impl HookSender {
-    pub fn enqueue(&self, commands: &[Vec<String>]) {
-        for argv in commands {
-            let hook_command = HookCommand { argv: argv.clone() };
-            if self.sender.try_send(hook_command).is_err() {
-                warn!(command = argv[0], "hook queue full, dropping command");
-            }
+    pub fn enqueue(&self, argv: &[String]) {
+        if argv.is_empty() {
+            return;
+        }
+        let hook_command = HookCommand { argv: argv.to_vec() };
+        if self.sender.try_send(hook_command).is_err() {
+            warn!(command = argv[0], "hook queue full, dropping command");
         }
     }
 }

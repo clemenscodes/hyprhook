@@ -60,15 +60,10 @@ self: {
     };
   };
 
-  # Wrap the single command list into a one-element list of commands for the TOML
-  # format, then strip null fields so the TOML stays clean.
+  # Strip null and unset fields so the TOML stays clean.
   serializeRule = rule:
     lib.filterAttrs (_: v: v != null) {
-      inherit (rule) class title;
-      on_open    = if rule.on_open    != null then [rule.on_open]    else null;
-      on_close   = if rule.on_close   != null then [rule.on_close]   else null;
-      on_focus   = if rule.on_focus   != null then [rule.on_focus]   else null;
-      on_unfocus = if rule.on_unfocus != null then [rule.on_unfocus] else null;
+      inherit (rule) class title on_open on_close on_focus on_unfocus;
     };
 
   configAttrs = {

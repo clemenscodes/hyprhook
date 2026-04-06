@@ -4,20 +4,20 @@ use tracing::warn;
 pub struct Rule {
     class: Option<Regex>,
     title: Option<Regex>,
-    on_open: Vec<Vec<String>>,
-    on_close: Vec<Vec<String>>,
-    on_focus: Vec<Vec<String>>,
-    on_unfocus: Vec<Vec<String>>,
+    on_open: Vec<String>,
+    on_close: Vec<String>,
+    on_focus: Vec<String>,
+    on_unfocus: Vec<String>,
 }
 
 impl Rule {
     pub fn new(
         class: Option<&str>,
         title: Option<&str>,
-        on_open: Vec<Vec<String>>,
-        on_close: Vec<Vec<String>>,
-        on_focus: Vec<Vec<String>>,
-        on_unfocus: Vec<Vec<String>>,
+        on_open: Vec<String>,
+        on_close: Vec<String>,
+        on_focus: Vec<String>,
+        on_unfocus: Vec<String>,
     ) -> Result<Self, regex::Error> {
         if class.is_none() && title.is_none() {
             warn!("rule with no class or title filter matches every window event");
@@ -49,19 +49,19 @@ impl Rule {
             .collect()
     }
 
-    pub fn on_open(&self) -> &[Vec<String>] {
+    pub fn on_open(&self) -> &[String] {
         &self.on_open
     }
 
-    pub fn on_close(&self) -> &[Vec<String>] {
+    pub fn on_close(&self) -> &[String] {
         &self.on_close
     }
 
-    pub fn on_focus(&self) -> &[Vec<String>] {
+    pub fn on_focus(&self) -> &[String] {
         &self.on_focus
     }
 
-    pub fn on_unfocus(&self) -> &[Vec<String>] {
+    pub fn on_unfocus(&self) -> &[String] {
         &self.on_unfocus
     }
 }
@@ -77,10 +77,10 @@ mod tests {
     fn rule_with_commands(
         class: Option<&str>,
         title: Option<&str>,
-        on_open: Vec<Vec<String>>,
-        on_close: Vec<Vec<String>>,
-        on_focus: Vec<Vec<String>>,
-        on_unfocus: Vec<Vec<String>>,
+        on_open: Vec<String>,
+        on_close: Vec<String>,
+        on_focus: Vec<String>,
+        on_unfocus: Vec<String>,
     ) -> Rule {
         Rule::new(class, title, on_open, on_close, on_focus, on_unfocus).unwrap()
     }
@@ -163,8 +163,8 @@ mod tests {
 
     #[test]
     fn commands_are_stored_and_accessible() {
-        let open = vec![vec!["obs-cli".to_owned(), "start-recording".to_owned()]];
-        let focus = vec![vec!["hyprctl".to_owned(), "dispatch".to_owned()]];
+        let open = vec!["obs-cli".to_owned(), "start-recording".to_owned()];
+        let focus = vec!["hyprctl".to_owned(), "dispatch".to_owned()];
         let rule = rule_with_commands(None, None, open.clone(), vec![], focus.clone(), vec![]);
         assert_eq!(rule.on_open(), open.as_slice());
         assert_eq!(rule.on_focus(), focus.as_slice());
