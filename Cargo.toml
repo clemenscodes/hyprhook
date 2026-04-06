@@ -6,6 +6,13 @@ edition = "2021"
 [package.metadata.crane]
 name = "hyprhook"
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "rule_matching"
+harness = false
+
 [dependencies]
 hyprland = "0.4.0-beta.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "sync"] }
