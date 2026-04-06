@@ -8,7 +8,7 @@ self: {
 
   commandType = lib.types.nonEmptyListOf lib.types.str;
 
-  windowRule = lib.types.submodule {
+  ruleType = lib.types.submodule {
     options = {
       class = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
@@ -65,7 +65,7 @@ self: {
     lib.filterAttrs (_: v: v != null && v != []) rule;
 
   configAttrs = {
-    window = map serializeRule cfg.windows;
+    rule = map serializeRule cfg.rules;
   };
 
   configFile = (pkgs.formats.toml {}).generate "hyprhook.toml" configAttrs;
@@ -95,8 +95,8 @@ in {
       '';
     };
 
-    windows = lib.mkOption {
-      type = lib.types.listOf windowRule;
+    rules = lib.mkOption {
+      type = lib.types.listOf ruleType;
       default = [];
       description = ''
         Window hook rules. Each entry matches windows by class and/or title
@@ -107,8 +107,8 @@ in {
       example = lib.literalExpression ''
         [
           {
-            class    = "gamescope";
-            title    = "Counter-Strike 2";
+            class      = "gamescope";
+            title      = "Counter-Strike 2";
             on_open    = [ ["obs-cli" "start-recording"] ];
             on_close   = [ ["obs-cli" "stop-recording"] ];
             on_focus   = [ ["hyprctl" "dispatch" "submap" "gaming"] ];

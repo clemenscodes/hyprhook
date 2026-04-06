@@ -2,7 +2,7 @@
 //!
 //! Config example (~/.config/hyprhook/config.toml):
 //!
-//!   [[window]]
+//!   [[rule]]
 //!   class     = "gamescope"
 //!   title     = "Counter-Strike 2"
 //!   on_open   = [["obs-cli", "start-recording"]]

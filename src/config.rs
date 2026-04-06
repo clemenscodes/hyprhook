@@ -5,7 +5,7 @@ use tracing::error;
 #[derive(Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
-    window: Vec<RuleConfig>,
+    rule: Vec<RuleConfig>,
 }
 
 #[derive(Deserialize)]
@@ -47,7 +47,7 @@ impl Config {
     }
 
     pub fn into_rules(self) -> Result<Vec<Rule>, regex::Error> {
-        self.window
+        self.rule
             .into_iter()
             .map(|rule_config| {
                 Rule::new(

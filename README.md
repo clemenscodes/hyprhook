@@ -6,7 +6,7 @@ Each rule matches windows by class and/or title (both are regular expressions, A
 ```toml
 # ~/.config/hyprhook/config.toml
 
-[[window]]
+[[rule]]
 class     = "^gamescope$"
 title     = "Counter-Strike 2"
 on_open   = [["obs-cli", "start-recording"]]
@@ -65,7 +65,7 @@ The flake exposes a NixOS module at `nixosModules.default` that:
 
   services.hyprhook = {
     enable = true;
-    windows = [
+    rules = [
       {
         class     = "^gamescope$";
         title     = "Counter-Strike 2";
@@ -90,9 +90,9 @@ exec-once = ${config.services.hyprhook.finalPackage}/bin/hyprhook
 | `services.hyprhook.enable` | `bool` | `false` | Enable the module |
 | `services.hyprhook.package` | `package` | flake default | The hyprhook package |
 | `services.hyprhook.finalPackage` | `package` | (read-only) | Binary pre-configured with generated TOML |
-| `services.hyprhook.windows` | `list of window rules` | `[]` | Hook rules (see below) |
+| `services.hyprhook.rules` | `list of rules` | `[]` | Hook rules (see below) |
 
-Each entry in `windows`:
+Each entry in `rules`:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -114,7 +114,7 @@ modules.io = {
   enable = true;
   hyprhook = {
     enable = true;
-    windows = [
+    rules = [
       {
         class      = "^gamescope$";
         title      = "Counter-Strike 2";
