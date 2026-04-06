@@ -7,12 +7,12 @@ Each rule matches windows by class and/or title (both are regular expressions, A
 # ~/.config/hyprhook/config.toml
 
 [[rule]]
-class     = "^gamescope$"
-title     = "Counter-Strike 2"
-on_open   = [["obs-cli", "start-recording"]]
-on_close  = [["obs-cli", "stop-recording"]]
-on_focus  = [["hyprctl", "dispatch", "submap", "gaming"]]
-on_unfocus = [["hyprctl", "dispatch", "submap", "reset"]]
+class      = "^gamescope$"
+title      = "Counter-Strike 2"
+on_open    = ["obs-cli", "start-recording"]
+on_close   = ["obs-cli", "stop-recording"]
+on_focus   = ["hyprctl", "dispatch", "submap", "gaming"]
+on_unfocus = ["hyprctl", "dispatch", "submap", "reset"]
 ```
 
 All four event types are optional — omit any you don't need.
@@ -22,6 +22,15 @@ Each command is an argv list: the first element is the executable, the rest are 
 Use absolute paths when the executable may not be on `PATH`.
 
 Commands are queued and run one at a time, preventing IPC socket floods on rapid focus changes.
+
+To run multiple commands on one event, define multiple rules with the same matcher.
+
+## Performance
+
+All class patterns are compiled into a single `RegexSet` and all title patterns into another at startup.
+Each window event performs one automaton pass over the class string and one over the title string,
+then intersects the two hit-index sets to find matching rules.
+Matching cost is **O(text length)** regardless of how many rules are configured.
 
 ## Standalone installation
 
@@ -67,10 +76,10 @@ The flake exposes a NixOS module at `nixosModules.default` that:
     enable = true;
     rules = [
       {
-        class     = "^gamescope$";
-        title     = "Counter-Strike 2";
-        on_focus  = [["hyprctl" "dispatch" "submap" "gaming"]];
-        on_unfocus = [["hyprctl" "dispatch" "submap" "reset"]];
+        class      = "^gamescope$";
+        title      = "Counter-Strike 2";
+        on_focus   = ["hyprctl" "dispatch" "submap" "gaming"];
+        on_unfocus = ["hyprctl" "dispatch" "submap" "reset"];
       }
     ];
   };
@@ -98,10 +107,7 @@ Each entry in `rules`:
 |---|---|---|---|
 | `class` | `str \| null` | `null` | Regex for window class; `null` matches any |
 | `title` | `str \| null` | `null` | Regex for window title; `null` matches any |
-| `on_open` | `list of argv` | `[]` | Commands when window is created |
-| `on_close` | `list of argv` | `[]` | Commands when window is destroyed |
-| `on_focus` | `list of argv` | `[]` | Commands when window gains focus |
-| `on_unfocus` | `list of argv` | `[]` | Commands when window loses focus |
-
-Each `argv` is a non-empty list of strings: `["executable", "arg1", "arg2", ...]`.
-
+| `on_open` | `[binary, ...args] \| null` | `null` | Command when window is created |
+| `on_close` | `[binary, ...args] \| null` | `null` | Command when window is destroyed |
+| `on_focus` | `[binary, ...args] \| null` | `null` | Command when window gains focus |
+| `on_unfocus` | `[binary, ...args] \| null` | `null` | Command when window loses focus |
