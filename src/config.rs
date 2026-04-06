@@ -13,13 +13,13 @@ struct RuleConfig {
     class: Option<String>,
     title: Option<String>,
     #[serde(default)]
-    on_open: Vec<String>,
+    on_open: Vec<Vec<String>>,
     #[serde(default)]
-    on_close: Vec<String>,
+    on_close: Vec<Vec<String>>,
     #[serde(default)]
-    on_focus: Vec<String>,
+    on_focus: Vec<Vec<String>>,
     #[serde(default)]
-    on_unfocus: Vec<String>,
+    on_unfocus: Vec<Vec<String>>,
 }
 
 impl Config {

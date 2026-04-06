@@ -6,6 +6,8 @@ self: {
 }: let
   cfg = config.services.hyprhook;
 
+  commandType = lib.types.nonEmptyListOf lib.types.str;
+
   windowRule = lib.types.submodule {
     options = {
       class = lib.mkOption {
@@ -29,38 +31,38 @@ self: {
       };
 
       on_open = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
+        type = lib.types.listOf commandType;
         default = [];
-        example = ["obs-cli start-recording"];
-        description = "Shell commands to run when a matching window is created.";
+        example = [["obs-cli" "start-recording"]];
+        description = "Commands to run when a matching window is created. Each command is an argv list.";
       };
 
       on_close = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
+        type = lib.types.listOf commandType;
         default = [];
-        example = ["obs-cli stop-recording"];
-        description = "Shell commands to run when a matching window is destroyed.";
+        example = [["obs-cli" "stop-recording"]];
+        description = "Commands to run when a matching window is destroyed. Each command is an argv list.";
       };
 
       on_focus = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
+        type = lib.types.listOf commandType;
         default = [];
-        example = ["hyprctl dispatch submap gaming"];
-        description = "Shell commands to run when a matching window gains focus.";
+        example = [["hyprctl" "dispatch" "submap" "gaming"]];
+        description = "Commands to run when a matching window gains focus. Each command is an argv list.";
       };
 
       on_unfocus = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
+        type = lib.types.listOf commandType;
         default = [];
-        example = ["hyprctl dispatch submap reset"];
-        description = "Shell commands to run when a matching window loses focus.";
+        example = [["hyprctl" "dispatch" "submap" "reset"]];
+        description = "Commands to run when a matching window loses focus. Each command is an argv list.";
       };
     };
   };
 
-  # Strip null fields before serialising so the TOML stays clean.
+  # Strip null fields and empty lists before serialising so the TOML stays clean.
   serializeRule = rule:
-    lib.filterAttrs (_: v: v != null) rule;
+    lib.filterAttrs (_: v: v != null && v != []) rule;
 
   configAttrs = {
     window = map serializeRule cfg.windows;
@@ -73,7 +75,7 @@ self: {
   '';
 in {
   options.services.hyprhook = {
-    enable = lib.mkEnableOption "hyprhook Hyprland window focus hook runner";
+    enable = lib.mkEnableOption "hyprhook Hyprland window lifecycle hook runner";
 
     package = lib.mkOption {
       type = lib.types.package;
@@ -87,9 +89,9 @@ in {
       readOnly = true;
       description = ''
         The hyprhook binary pre-configured with the generated TOML config.
-        Add this to your PATH and launch it from Hyprland:
+        Launch from Hyprland:
 
-          exec-once = hyprhook
+          exec-once = ''${config.services.hyprhook.finalPackage}/bin/hyprhook
       '';
     };
 
@@ -97,19 +99,20 @@ in {
       type = lib.types.listOf windowRule;
       default = [];
       description = ''
-        Window hook rules. Each entry matches a focused window by class and/or
-        title (both are regexes, AND-ed) and runs shell commands when that
-        window gains or loses focus.
+        Window hook rules. Each entry matches windows by class and/or title
+        (both are regexes, AND-ed) and runs commands on lifecycle events.
+        Each command is an argv list — the first element is the executable,
+        the rest are its arguments.
       '';
       example = lib.literalExpression ''
         [
           {
             class    = "gamescope";
             title    = "Counter-Strike 2";
-            on_open    = [ "obs-cli start-recording" ];
-            on_close   = [ "obs-cli stop-recording" ];
-            on_focus   = [ "hyprctl dispatch submap gaming" ];
-            on_unfocus = [ "hyprctl dispatch submap reset" ];
+            on_open    = [ ["obs-cli" "start-recording"] ];
+            on_close   = [ ["obs-cli" "stop-recording"] ];
+            on_focus   = [ ["hyprctl" "dispatch" "submap" "gaming"] ];
+            on_unfocus = [ ["hyprctl" "dispatch" "submap" "reset"] ];
           }
         ]
       '';

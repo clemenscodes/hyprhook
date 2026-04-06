@@ -1,20 +1,19 @@
-//! hyprhook — run scripts on Hyprland window lifecycle and focus events.
+//! hyprhook — run commands on Hyprland window lifecycle and focus events.
 //!
 //! Config example (~/.config/hyprhook/config.toml):
 //!
 //!   [[window]]
 //!   class     = "gamescope"
 //!   title     = "Counter-Strike 2"
-//!   on_open   = ["obs-cli start-recording"]
-//!   on_close  = ["obs-cli stop-recording"]
-//!   on_focus  = ["hyprctl dispatch submap gaming"]
-//!   on_unfocus = ["hyprctl dispatch submap reset"]
+//!   on_open   = [["obs-cli", "start-recording"]]
+//!   on_close  = [["obs-cli", "stop-recording"]]
+//!   on_focus  = [["hyprctl", "dispatch", "submap", "gaming"]]
+//!   on_unfocus = [["hyprctl", "dispatch", "submap", "reset"]]
 //!
 //! All four event types are optional — omit any you don't need.
 //!
-//! Each command runs via `sh -c` with:
-//!   HYPRHOOK_WINDOW_CLASS  — window class
-//!   HYPRHOOK_WINDOW_TITLE  — window title
+//! Each command is an argv list: the first element is the executable
+//! (use an absolute path when not on PATH), the rest are arguments.
 
 mod args;
 mod config;
@@ -101,7 +100,7 @@ async fn main() -> hyprland::Result<()> {
                 let info = WindowInfo::new(class.clone(), title.clone());
                 state.lock().unwrap().insert_open(address, info);
                 for rule in Rule::matching(&rules, &class, &title) {
-                    enqueue_hooks(&hook_sender, rule.on_open(), &class, &title);
+                    enqueue_hooks(&hook_sender, rule.on_open());
                 }
             })
         });
@@ -119,7 +118,7 @@ async fn main() -> hyprland::Result<()> {
                 let key = address.to_string();
                 if let Some(info) = state.lock().unwrap().remove_open(&key) {
                     for rule in Rule::matching(&rules, info.class(), info.title()) {
-                        enqueue_hooks(&hook_sender, rule.on_close(), info.class(), info.title());
+                        enqueue_hooks(&hook_sender, rule.on_close());
                     }
                 }
             })
@@ -143,10 +142,10 @@ async fn main() -> hyprland::Result<()> {
                 let new_title = new_info.title().to_owned();
                 let previous_info = state.lock().unwrap().update_focus(new_info);
                 for rule in Rule::matching(&rules, previous_info.class(), previous_info.title()) {
-                    enqueue_hooks(&hook_sender, rule.on_unfocus(), previous_info.class(), previous_info.title());
+                    enqueue_hooks(&hook_sender, rule.on_unfocus());
                 }
                 for rule in Rule::matching(&rules, &new_class, &new_title) {
-                    enqueue_hooks(&hook_sender, rule.on_focus(), &new_class, &new_title);
+                    enqueue_hooks(&hook_sender, rule.on_focus());
                 }
             })
         });

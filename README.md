@@ -1,7 +1,7 @@
 # hyprhook
 
-Run shell commands when Hyprland windows open, close, gain focus, or lose focus.
-Each rule matches windows by class and/or title (both are Go-compatible regular expressions, AND-ed together).
+Run commands when Hyprland windows open, close, gain focus, or lose focus.
+Each rule matches windows by class and/or title (both are regular expressions, AND-ed together).
 
 ```toml
 # ~/.config/hyprhook/config.toml
@@ -9,21 +9,17 @@ Each rule matches windows by class and/or title (both are Go-compatible regular 
 [[window]]
 class     = "^gamescope$"
 title     = "Counter-Strike 2"
-on_open   = ["obs-cli start-recording"]
-on_close  = ["obs-cli stop-recording"]
-on_focus  = ["wootswitch switch CS2"]
-on_unfocus = ["wootswitch switch Default"]
+on_open   = [["obs-cli", "start-recording"]]
+on_close  = [["obs-cli", "stop-recording"]]
+on_focus  = [["hyprctl", "dispatch", "submap", "gaming"]]
+on_unfocus = [["hyprctl", "dispatch", "submap", "reset"]]
 ```
 
 All four event types are optional — omit any you don't need.
 Rules without `class` or `title` match all windows.
 
-Each command runs via `sh -c` with two environment variables set:
-
-| Variable | Value |
-|---|---|
-| `HYPRHOOK_WINDOW_CLASS` | Window class of the matched window |
-| `HYPRHOOK_WINDOW_TITLE` | Window title of the matched window |
+Each command is an argv list: the first element is the executable, the rest are its arguments.
+Use absolute paths when the executable may not be on `PATH`.
 
 Commands are queued and run one at a time, preventing IPC socket floods on rapid focus changes.
 
@@ -73,8 +69,8 @@ The flake exposes a NixOS module at `nixosModules.default` that:
       {
         class     = "^gamescope$";
         title     = "Counter-Strike 2";
-        on_focus  = ["wootswitch switch CS2"];
-        on_unfocus = ["wootswitch switch Default"];
+        on_focus  = [["hyprctl" "dispatch" "submap" "gaming"]];
+        on_unfocus = [["hyprctl" "dispatch" "submap" "reset"]];
       }
     ];
   };
@@ -86,8 +82,6 @@ The flake exposes a NixOS module at `nixosModules.default` that:
 ```ini
 exec-once = ${config.services.hyprhook.finalPackage}/bin/hyprhook
 ```
-
-Or manage it as a systemd user service (see below).
 
 ### Full option reference
 
@@ -104,26 +98,12 @@ Each entry in `windows`:
 |---|---|---|---|
 | `class` | `str \| null` | `null` | Regex for window class; `null` matches any |
 | `title` | `str \| null` | `null` | Regex for window title; `null` matches any |
-| `on_open` | `list of str` | `[]` | Commands when window is created |
-| `on_close` | `list of str` | `[]` | Commands when window is destroyed |
-| `on_focus` | `list of str` | `[]` | Commands when window gains focus |
-| `on_unfocus` | `list of str` | `[]` | Commands when window loses focus |
+| `on_open` | `list of argv` | `[]` | Commands when window is created |
+| `on_close` | `list of argv` | `[]` | Commands when window is destroyed |
+| `on_focus` | `list of argv` | `[]` | Commands when window gains focus |
+| `on_unfocus` | `list of argv` | `[]` | Commands when window loses focus |
 
-### Running as a systemd user service
-
-```nix
-systemd.user.services.hyprhook = {
-  description = "hyprhook Hyprland window event hook runner";
-  wantedBy    = ["graphical-session.target"];
-  after       = ["graphical-session.target"];
-  serviceConfig = {
-    Type       = "simple";
-    ExecStart  = "${config.services.hyprhook.finalPackage}/bin/hyprhook";
-    Restart    = "on-failure";
-    RestartSec = "1s";
-  };
-};
-```
+Each `argv` is a non-empty list of strings: `["executable", "arg1", "arg2", ...]`.
 
 ## CymenixOS
 
@@ -138,12 +118,12 @@ modules.io = {
       {
         class      = "^gamescope$";
         title      = "Counter-Strike 2";
-        on_focus   = ["wootswitch switch CS2"];
-        on_unfocus = ["wootswitch switch Default"];
+        on_focus   = [["hyprctl" "dispatch" "submap" "gaming"]];
+        on_unfocus = [["hyprctl" "dispatch" "submap" "reset"]];
       }
     ];
   };
 };
 ```
 
-The CymenixOS module automatically sets up the systemd user service.
+The CymenixOS module automatically adds `exec-once` to your Hyprland config.
