@@ -2,7 +2,10 @@ use clap::{Parser, Subcommand};
 use clap_complete::Shell;
 
 #[derive(Parser)]
-#[command(name = "hyprhook", about = "Run commands on Hyprland window lifecycle and focus events")]
+#[command(
+    name = "hyprhook",
+    about = "Run commands on Hyprland window lifecycle and focus events"
+)]
 pub struct Args {
     /// Path to TOML config file.
     /// Defaults to $XDG_CONFIG_HOME/hyprhook/config.toml

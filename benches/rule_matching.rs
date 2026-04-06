@@ -1,16 +1,18 @@
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use hyprhook::RuleSet;
 
 fn build_set(rule_count: usize) -> RuleSet {
     let rules = (0..rule_count)
-        .map(|index| hyprhook::Rule::new(
-            Some(&format!("^app-{index}$")),
-            Some(&format!("^Window {index}$")),
-            vec![],
-            vec![],
-            vec![format!("/usr/bin/cmd-{index}")],
-            vec![],
-        ))
+        .map(|index| {
+            hyprhook::Rule::new(
+                Some(&format!("^app-{index}$")),
+                Some(&format!("^Window {index}$")),
+                vec![],
+                vec![],
+                vec![format!("/usr/bin/cmd-{index}")],
+                vec![],
+            )
+        })
         .collect();
     RuleSet::new(rules).unwrap()
 }

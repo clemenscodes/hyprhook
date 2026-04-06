@@ -76,7 +76,11 @@ impl RuleSet {
     pub fn new(rules: Vec<Rule>) -> Result<Self, regex::Error> {
         let class_set = RegexSet::new(rules.iter().map(Rule::class_pattern))?;
         let title_set = RegexSet::new(rules.iter().map(Rule::title_pattern))?;
-        Ok(Self { rules, class_set, title_set })
+        Ok(Self {
+            rules,
+            class_set,
+            title_set,
+        })
     }
 
     /// Returns all rules whose class **and** title patterns match.
@@ -107,7 +111,15 @@ mod tests {
     use super::*;
 
     fn set(class: Option<&str>, title: Option<&str>) -> RuleSet {
-        RuleSet::new(vec![Rule::new(class, title, vec![], vec![], vec![], vec![])]).unwrap()
+        RuleSet::new(vec![Rule::new(
+            class,
+            title,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        )])
+        .unwrap()
     }
 
     fn set_many(specs: &[(Option<&str>, Option<&str>)]) -> RuleSet {
@@ -156,12 +168,28 @@ mod tests {
 
     #[test]
     fn invalid_class_regex_is_rejected() {
-        assert!(RuleSet::new(vec![Rule::new(Some("[invalid"), None, vec![], vec![], vec![], vec![])]).is_err());
+        assert!(RuleSet::new(vec![Rule::new(
+            Some("[invalid"),
+            None,
+            vec![],
+            vec![],
+            vec![],
+            vec![]
+        )])
+        .is_err());
     }
 
     #[test]
     fn invalid_title_regex_is_rejected() {
-        assert!(RuleSet::new(vec![Rule::new(None, Some("[invalid"), vec![], vec![], vec![], vec![])]).is_err());
+        assert!(RuleSet::new(vec![Rule::new(
+            None,
+            Some("[invalid"),
+            vec![],
+            vec![],
+            vec![],
+            vec![]
+        )])
+        .is_err());
     }
 
     #[test]
@@ -193,7 +221,14 @@ mod tests {
     fn commands_are_stored_and_accessible() {
         let on_open = vec!["obs-cli".to_owned(), "start-recording".to_owned()];
         let on_focus = vec!["hyprctl".to_owned(), "dispatch".to_owned()];
-        let rule = Rule::new(None, None, on_open.clone(), vec![], on_focus.clone(), vec![]);
+        let rule = Rule::new(
+            None,
+            None,
+            on_open.clone(),
+            vec![],
+            on_focus.clone(),
+            vec![],
+        );
         assert_eq!(rule.on_open(), on_open.as_slice());
         assert_eq!(rule.on_focus(), on_focus.as_slice());
         assert!(rule.on_close().is_empty());

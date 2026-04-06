@@ -50,7 +50,12 @@ async fn main() -> hyprland::Result<()> {
     let args = Args::parse();
 
     if let Some(Action::Completions { shell }) = args.subcommand() {
-        clap_complete::generate(*shell, &mut Args::command(), "hyprhook", &mut std::io::stdout());
+        clap_complete::generate(
+            *shell,
+            &mut Args::command(),
+            "hyprhook",
+            &mut std::io::stdout(),
+        );
         return Ok(());
     }
 
