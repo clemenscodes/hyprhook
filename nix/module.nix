@@ -119,5 +119,21 @@ in {
   config = lib.mkIf cfg.enable {
     services.hyprhook.finalPackage = wrappedPackage;
     environment.systemPackages = [wrappedPackage];
+
+    systemd.user.services.hyprhook = {
+      Unit = {
+        Description = "hyprhook Hyprland window focus hook runner";
+        PartOf = ["graphical-session.target"];
+        After = ["graphical-session.target"];
+      };
+      Service = {
+        ExecStart = "${wrappedPackage}/bin/hyprhook";
+        Restart = "on-failure";
+        PassEnvironment = "PATH";
+      };
+      Install = {
+        WantedBy = ["graphical-session.target"];
+      };
+    };
   };
 }
