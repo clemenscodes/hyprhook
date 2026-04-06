@@ -77,9 +77,13 @@ fn default_config_path() -> String {
     format!("{}/hyprhook/config.toml", base)
 }
 
-fn load_config(path: &str) -> Config {
+fn load_config(path: &str, explicit: bool) -> Config {
     let content = match std::fs::read_to_string(path) {
         Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound && !explicit => {
+            // Default path doesn't exist — that's fine, run with no rules.
+            return Config::default();
+        }
         Err(e) => {
             eprintln!("hyprhook: cannot read config {}: {}", path, e);
             std::process::exit(1);
@@ -174,8 +178,9 @@ fn spawn_hooks(cmds: &[String], class: &str, title: &str) {
 #[tokio::main]
 async fn main() -> hyprland::Result<()> {
     let args = Args::parse();
+    let explicit = args.config.is_some();
     let config_path = args.config.unwrap_or_else(default_config_path);
-    let config = load_config(&config_path);
+    let config = load_config(&config_path, explicit);
 
     let rules: Arc<Vec<Rule>> = Arc::new(
         config
