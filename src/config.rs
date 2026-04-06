@@ -1,5 +1,6 @@
 use crate::rule::Rule;
 use serde::Deserialize;
+use tracing::error;
 
 #[derive(Deserialize, Default)]
 pub struct Config {
@@ -31,16 +32,16 @@ impl Config {
     pub fn load(path: &str, explicit: bool) -> Self {
         let content = match std::fs::read_to_string(path) {
             Ok(source) => source,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound && !explicit => {
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound && !explicit => {
                 return Self::default();
             }
-            Err(error) => {
-                eprintln!("hyprhook: cannot read config {path}: {error}");
+            Err(err) => {
+                error!(%err, path, "cannot read config");
                 std::process::exit(1);
             }
         };
-        toml::from_str(&content).unwrap_or_else(|error| {
-            eprintln!("hyprhook: config parse error in {path}: {error}");
+        toml::from_str(&content).unwrap_or_else(|err| {
+            error!(%err, path, "config parse error");
             std::process::exit(1);
         })
     }

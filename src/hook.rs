@@ -1,4 +1,5 @@
 use tokio::{process::Command, sync::mpsc};
+use tracing::{info, warn, error};
 
 const HOOK_QUEUE_CAPACITY: usize = 64;
 
@@ -23,13 +24,15 @@ pub fn create_hook_channel() -> (HookSender, mpsc::Receiver<HookCommand>) {
 pub fn enqueue_hooks(hook_sender: &HookSender, commands: &[String], class: &str, title: &str) {
     for command in commands {
         let hook_command = HookCommand::new(command.clone(), class.to_owned(), title.to_owned());
-        let _ = hook_sender.try_send(hook_command);
+        if hook_sender.try_send(hook_command).is_err() {
+            warn!(command, "hook queue full, dropping command");
+        }
     }
 }
 
 pub async fn run_hook_worker(mut hook_receiver: mpsc::Receiver<HookCommand>) {
     while let Some(HookCommand { command, class, title }) = hook_receiver.recv().await {
-        eprintln!("hyprhook: running {command:?}");
+        info!(command, "running hook");
         let result = Command::new("/bin/sh")
             .arg("-c")
             .arg(&command)
@@ -39,8 +42,8 @@ pub async fn run_hook_worker(mut hook_receiver: mpsc::Receiver<HookCommand>) {
             .await;
         match result {
             Ok(status) if status.success() => {}
-            Ok(status) => eprintln!("hyprhook: {command:?} exited with {status}"),
-            Err(error) => eprintln!("hyprhook: {command:?} failed to spawn: {error}"),
+            Ok(status) => warn!(command, exit_status = %status, "hook exited with non-zero status"),
+            Err(err) => error!(command, %err, "hook failed to spawn"),
         }
     }
 }

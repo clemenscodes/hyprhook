@@ -35,9 +35,17 @@ use hyprland::{
 };
 use rule::Rule;
 use state::{State, WindowInfo};
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> hyprland::Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("hyprhook=info")),
+        )
+        .init();
+
     let args = Args::parse();
     let config_path_override = args.config_path();
     let is_explicit = config_path_override.is_some();
@@ -46,15 +54,15 @@ async fn main() -> hyprland::Result<()> {
 
     let rules: Arc<Vec<Rule>> = Arc::new(
         config.into_rules().unwrap_or_else(|error| {
-            eprintln!("hyprhook: invalid regex in config: {error}");
+            error!(%error, "invalid regex in config");
             std::process::exit(1);
         }),
     );
 
-    eprintln!("hyprhook: loaded {} rule(s) from {config_path}", rules.len());
+    info!(count = rules.len(), config = %config_path, "loaded rules");
 
     if rules.is_empty() {
-        eprintln!("hyprhook: no rules configured, nothing to do");
+        warn!("no rules configured, nothing to do");
         return Ok(());
     }
 
@@ -145,9 +153,9 @@ async fn main() -> hyprland::Result<()> {
     }
 
     listener.start_listener_async().await.map_err(|error| {
-        eprintln!(
-            "hyprhook: failed to connect to Hyprland IPC socket: {error}\n\
-             Is Hyprland running? Is HYPRLAND_INSTANCE_SIGNATURE set?"
+        error!(
+            %error,
+            "failed to connect to Hyprland IPC socket — is Hyprland running? Is HYPRLAND_INSTANCE_SIGNATURE set?"
         );
         error
     })
