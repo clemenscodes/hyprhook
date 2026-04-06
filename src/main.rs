@@ -1,25 +1,32 @@
-/// hyprhook — run scripts when Hyprland windows gain or lose focus.
-///
-/// Reads a TOML config file with [[window]] rules, each specifying optional
-/// class/title regex patterns and lists of shell commands to run on focus
-/// and blur events.
+/// hyprhook — run scripts on Hyprland window lifecycle and focus events.
 ///
 /// Config example (~/.config/hyprhook/config.toml):
 ///
 ///   [[window]]
-///   class    = "gamescope"
-///   title    = "Counter-Strike 2"
-///   on_focus = ["gamemode start", "obs-cli start-recording"]
-///   on_blur  = ["gamemode stop",  "obs-cli stop-recording"]
+///   class     = "gamescope"
+///   title     = "Counter-Strike 2"
+///   on_open   = ["obs-cli start-recording"]
+///   on_close  = ["obs-cli stop-recording"]
+///   on_focus  = ["hyprctl dispatch submap gaming"]
+///   on_unfocus = ["hyprctl dispatch submap reset"]
 ///
-/// Each command is executed via `sh -c` and receives:
-///   HYPRHOOK_WINDOW_CLASS  — class of the newly focused window
-///   HYPRHOOK_WINDOW_TITLE  — title of the newly focused window
+/// All four event types are optional — omit any you don't need.
+///
+/// Each command runs via `sh -c` with:
+///   HYPRHOOK_WINDOW_CLASS  — window class
+///   HYPRHOOK_WINDOW_TITLE  — window title
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use clap::Parser;
-use hyprland::{data::Client, event_listener::AsyncEventListener, prelude::*};
+use hyprland::{
+    data::{Client, Clients},
+    event_listener::AsyncEventListener,
+    prelude::*,
+};
 use regex::Regex;
 use serde::Deserialize;
 use tokio::process::Command;
@@ -31,18 +38,17 @@ use tokio::process::Command;
 #[derive(Parser)]
 #[command(
     name = "hyprhook",
-    about = "Run scripts when Hyprland windows gain or lose focus"
+    about = "Run scripts on Hyprland window lifecycle and focus events"
 )]
 struct Args {
     /// Path to TOML config file.
     /// Defaults to $XDG_CONFIG_HOME/hyprhook/config.toml
-    /// (falling back to ~/.config/hyprhook/config.toml).
     #[arg(short, long, value_name = "PATH")]
     config: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
-// Config (TOML)
+// Config
 // ---------------------------------------------------------------------------
 
 #[derive(Deserialize, Default)]
@@ -56,9 +62,13 @@ struct RuleConfig {
     class: Option<String>,
     title: Option<String>,
     #[serde(default)]
+    on_open: Vec<String>,
+    #[serde(default)]
+    on_close: Vec<String>,
+    #[serde(default)]
     on_focus: Vec<String>,
     #[serde(default)]
-    on_blur: Vec<String>,
+    on_unfocus: Vec<String>,
 }
 
 fn default_config_path() -> String {
@@ -88,8 +98,10 @@ fn load_config(path: &str) -> Config {
 struct Rule {
     class: Option<Regex>,
     title: Option<Regex>,
+    on_open: Vec<String>,
+    on_close: Vec<String>,
     on_focus: Vec<String>,
-    on_blur: Vec<String>,
+    on_unfocus: Vec<String>,
 }
 
 impl Rule {
@@ -97,8 +109,10 @@ impl Rule {
         Ok(Self {
             class: cfg.class.as_deref().map(Regex::new).transpose()?,
             title: cfg.title.as_deref().map(Regex::new).transpose()?,
+            on_open: cfg.on_open,
+            on_close: cfg.on_close,
             on_focus: cfg.on_focus,
-            on_blur: cfg.on_blur,
+            on_unfocus: cfg.on_unfocus,
         })
     }
 
@@ -109,27 +123,24 @@ impl Rule {
 }
 
 // ---------------------------------------------------------------------------
-// Focus state
+// Shared state
 // ---------------------------------------------------------------------------
 
-struct FocusState {
-    class: String,
-    title: String,
-    /// Indices into `rules` that matched the current window.
-    matched: Vec<usize>,
+struct State {
+    /// All currently open windows: address → (class, title).
+    /// Populated at startup and kept in sync via open/close events.
+    open: HashMap<String, (String, String)>,
+    /// Class/title of the currently focused window.
+    focused_class: String,
+    focused_title: String,
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn matching_indices(rules: &[Rule], class: &str, title: &str) -> Vec<usize> {
-    rules
-        .iter()
-        .enumerate()
-        .filter(|(_, r)| r.matches(class, title))
-        .map(|(i, _)| i)
-        .collect()
+fn matching_rules<'a>(rules: &'a [Rule], class: &str, title: &str) -> Vec<&'a Rule> {
+    rules.iter().filter(|r| r.matches(class, title)).collect()
 }
 
 /// Spawn each command via `sh -c`. Fire-and-forget; errors go to stderr.
@@ -166,40 +177,88 @@ async fn main() -> hyprland::Result<()> {
     let config_path = args.config.unwrap_or_else(default_config_path);
     let config = load_config(&config_path);
 
-    let rules: Vec<Rule> = config
-        .window
-        .into_iter()
-        .map(Rule::from_config)
-        .collect::<Result<_, _>>()
-        .unwrap_or_else(|e| {
-            eprintln!("hyprhook: invalid regex in config: {}", e);
-            std::process::exit(1);
-        });
+    let rules: Arc<Vec<Rule>> = Arc::new(
+        config
+            .window
+            .into_iter()
+            .map(Rule::from_config)
+            .collect::<Result<_, _>>()
+            .unwrap_or_else(|e| {
+                eprintln!("hyprhook: invalid regex in config: {}", e);
+                std::process::exit(1);
+            }),
+    );
 
     eprintln!("hyprhook: loaded {} rule(s) from {}", rules.len(), config_path);
 
-    let rules = Arc::new(rules);
-
-    // Bootstrap: fire on_focus for whichever window is active right now.
-    let initial = match Client::get_active() {
-        Ok(Some(c)) => {
-            let matched = matching_indices(&rules, &c.class, &c.title);
-            for &i in &matched {
-                spawn_hooks(&rules[i].on_focus, &c.class, &c.title);
-            }
-            FocusState { class: c.class, title: c.title, matched }
+    // Seed the open-windows map from whatever is already running.
+    let mut open: HashMap<String, (String, String)> = HashMap::new();
+    if let Ok(clients) = Clients::get() {
+        for c in clients.iter() {
+            open.insert(c.address.to_string(), (c.class.clone(), c.title.clone()));
         }
-        _ => FocusState { class: String::new(), title: String::new(), matched: vec![] },
+    }
+
+    // Seed focused window.
+    let (focused_class, focused_title) = match Client::get_active() {
+        Ok(Some(c)) => (c.class, c.title),
+        _ => (String::new(), String::new()),
     };
 
-    let state: Arc<Mutex<FocusState>> = Arc::new(Mutex::new(initial));
+    let state: Arc<Mutex<State>> = Arc::new(Mutex::new(State {
+        open,
+        focused_class,
+        focused_title,
+    }));
 
     let mut listener = AsyncEventListener::new();
 
+    // --- window opened -------------------------------------------------------
     {
         let rules = Arc::clone(&rules);
         let state = Arc::clone(&state);
+        listener.add_window_opened_handler(move |data| {
+            let rules = Arc::clone(&rules);
+            let state = Arc::clone(&state);
+            Box::pin(async move {
+                let class = data.window_class;
+                let title = data.window_title;
+                let addr = data.window_address.to_string();
+                state
+                    .lock()
+                    .unwrap()
+                    .open
+                    .insert(addr, (class.clone(), title.clone()));
+                for rule in matching_rules(&rules, &class, &title) {
+                    spawn_hooks(&rule.on_open, &class, &title);
+                }
+            })
+        });
+    }
 
+    // --- window closed -------------------------------------------------------
+    {
+        let rules = Arc::clone(&rules);
+        let state = Arc::clone(&state);
+        listener.add_window_closed_handler(move |addr| {
+            let rules = Arc::clone(&rules);
+            let state = Arc::clone(&state);
+            Box::pin(async move {
+                let key = addr.to_string();
+                let entry = state.lock().unwrap().open.remove(&key);
+                if let Some((class, title)) = entry {
+                    for rule in matching_rules(&rules, &class, &title) {
+                        spawn_hooks(&rule.on_close, &class, &title);
+                    }
+                }
+            })
+        });
+    }
+
+    // --- focus changed -------------------------------------------------------
+    {
+        let rules = Arc::clone(&rules);
+        let state = Arc::clone(&state);
         listener.add_active_window_changed_handler(move |data| {
             let rules = Arc::clone(&rules);
             let state = Arc::clone(&state);
@@ -209,25 +268,22 @@ async fn main() -> hyprland::Result<()> {
                     None => (String::new(), String::new()),
                 };
 
-                let new_matched = matching_indices(&rules, &new_class, &new_title);
-                let mut st = state.lock().unwrap();
+                let (old_class, old_title) = {
+                    let mut st = state.lock().unwrap();
+                    let prev = (st.focused_class.clone(), st.focused_title.clone());
+                    st.focused_class = new_class.clone();
+                    st.focused_title = new_title.clone();
+                    prev
+                };
 
-                // Rules that were active and no longer match → blur.
-                for &i in &st.matched {
-                    if !new_matched.contains(&i) {
-                        spawn_hooks(&rules[i].on_blur, &st.class, &st.title);
-                    }
+                // Unfocus: rules that matched the old window.
+                for rule in matching_rules(&rules, &old_class, &old_title) {
+                    spawn_hooks(&rule.on_unfocus, &old_class, &old_title);
                 }
-                // Rules that now match but didn't before → focus.
-                for &i in &new_matched {
-                    if !st.matched.contains(&i) {
-                        spawn_hooks(&rules[i].on_focus, &new_class, &new_title);
-                    }
+                // Focus: rules that match the new window.
+                for rule in matching_rules(&rules, &new_class, &new_title) {
+                    spawn_hooks(&rule.on_focus, &new_class, &new_title);
                 }
-
-                st.class = new_class;
-                st.title = new_title;
-                st.matched = new_matched;
             })
         });
     }

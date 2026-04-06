@@ -28,18 +28,32 @@ self: {
         '';
       };
 
+      on_open = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        example = ["obs-cli start-recording"];
+        description = "Shell commands to run when a matching window is created.";
+      };
+
+      on_close = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        example = ["obs-cli stop-recording"];
+        description = "Shell commands to run when a matching window is destroyed.";
+      };
+
       on_focus = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
-        example = ["gamemode start" "obs-cli start-recording"];
-        description = "Shell commands to run when this window gains focus.";
+        example = ["hyprctl dispatch submap gaming"];
+        description = "Shell commands to run when a matching window gains focus.";
       };
 
-      on_blur = lib.mkOption {
+      on_unfocus = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
-        example = ["gamemode stop" "obs-cli stop-recording"];
-        description = "Shell commands to run when this window loses focus.";
+        example = ["hyprctl dispatch submap reset"];
+        description = "Shell commands to run when a matching window loses focus.";
       };
     };
   };
@@ -92,8 +106,10 @@ in {
           {
             class    = "gamescope";
             title    = "Counter-Strike 2";
-            on_focus = [ "gamemode start" "obs-cli start-recording" ];
-            on_blur  = [ "gamemode stop"  "obs-cli stop-recording"  ];
+            on_open    = [ "obs-cli start-recording" ];
+            on_close   = [ "obs-cli stop-recording" ];
+            on_focus   = [ "hyprctl dispatch submap gaming" ];
+            on_unfocus = [ "hyprctl dispatch submap reset" ];
           }
         ]
       '';
