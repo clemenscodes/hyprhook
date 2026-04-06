@@ -31,38 +31,45 @@ self: {
       };
 
       on_open = lib.mkOption {
-        type = lib.types.listOf commandType;
-        default = [];
-        example = [["obs-cli" "start-recording"]];
-        description = "Commands to run when a matching window is created. Each command is an argv list.";
+        type = lib.types.nullOr commandType;
+        default = null;
+        example = ["obs-cli" "start-recording"];
+        description = "Command to run when a matching window is created. First element is the binary, the rest are args.";
       };
 
       on_close = lib.mkOption {
-        type = lib.types.listOf commandType;
-        default = [];
-        example = [["obs-cli" "stop-recording"]];
-        description = "Commands to run when a matching window is destroyed. Each command is an argv list.";
+        type = lib.types.nullOr commandType;
+        default = null;
+        example = ["obs-cli" "stop-recording"];
+        description = "Command to run when a matching window is destroyed. First element is the binary, the rest are args.";
       };
 
       on_focus = lib.mkOption {
-        type = lib.types.listOf commandType;
-        default = [];
-        example = [["hyprctl" "dispatch" "submap" "gaming"]];
-        description = "Commands to run when a matching window gains focus. Each command is an argv list.";
+        type = lib.types.nullOr commandType;
+        default = null;
+        example = ["hyprctl" "dispatch" "submap" "gaming"];
+        description = "Command to run when a matching window gains focus. First element is the binary, the rest are args.";
       };
 
       on_unfocus = lib.mkOption {
-        type = lib.types.listOf commandType;
-        default = [];
-        example = [["hyprctl" "dispatch" "submap" "reset"]];
-        description = "Commands to run when a matching window loses focus. Each command is an argv list.";
+        type = lib.types.nullOr commandType;
+        default = null;
+        example = ["hyprctl" "dispatch" "submap" "reset"];
+        description = "Command to run when a matching window loses focus. First element is the binary, the rest are args.";
       };
     };
   };
 
-  # Strip null fields and empty lists before serialising so the TOML stays clean.
+  # Wrap the single command list into a one-element list of commands for the TOML
+  # format, then strip null fields so the TOML stays clean.
   serializeRule = rule:
-    lib.filterAttrs (_: v: v != null && v != []) rule;
+    lib.filterAttrs (_: v: v != null) {
+      inherit (rule) class title;
+      on_open    = if rule.on_open    != null then [rule.on_open]    else null;
+      on_close   = if rule.on_close   != null then [rule.on_close]   else null;
+      on_focus   = if rule.on_focus   != null then [rule.on_focus]   else null;
+      on_unfocus = if rule.on_unfocus != null then [rule.on_unfocus] else null;
+    };
 
   configAttrs = {
     rule = map serializeRule cfg.rules;
@@ -107,21 +114,18 @@ in {
       description = ''
         Window hook rules. Each entry matches windows by class and/or title
         (both are regexes, AND-ed) and runs commands on lifecycle events.
-        Each command is an argv list — the first element is the executable,
-        the rest are its arguments.
+        Each command specifies a binary and optional args separately.
       '';
-      example = lib.literalExpression ''
-        [
-          {
-            class      = "gamescope";
-            title      = "Counter-Strike 2";
-            on_open    = [ ["obs-cli" "start-recording"] ];
-            on_close   = [ ["obs-cli" "stop-recording"] ];
-            on_focus   = [ ["hyprctl" "dispatch" "submap" "gaming"] ];
-            on_unfocus = [ ["hyprctl" "dispatch" "submap" "reset"] ];
-          }
-        ]
-      '';
+      example = [
+        {
+          class      = "gamescope";
+          title      = "Counter-Strike 2";
+          on_focus   = ["cs2-mode-start"];
+          on_unfocus = ["cs2-mode-stop"];
+          on_open    = ["obs-cli" "start-recording"];
+          on_close   = ["obs-cli" "stop-recording"];
+        }
+      ];
     };
   };
 
