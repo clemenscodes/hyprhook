@@ -70,9 +70,15 @@ self: {
 
   configFile = (pkgs.formats.toml {}).generate "hyprhook.toml" configAttrs;
 
-  wrappedPackage = pkgs.writeShellScriptBin "hyprhook" ''
-    exec ${cfg.package}/bin/hyprhook --config ${configFile} "$@"
-  '';
+  wrappedPackage = pkgs.symlinkJoin {
+    name = "hyprhook";
+    paths = [cfg.package];
+    nativeBuildInputs = [pkgs.makeWrapper];
+    postBuild = ''
+      wrapProgram $out/bin/hyprhook \
+        --add-flags "--config ${configFile}"
+    '';
+  };
 in {
   options.services.hyprhook = {
     enable = lib.mkEnableOption "hyprhook Hyprland window lifecycle hook runner";
