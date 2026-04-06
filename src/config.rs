@@ -1,4 +1,4 @@
-use crate::rule::Rule;
+use crate::rule::{Rule, RuleSet};
 use serde::Deserialize;
 use tracing::error;
 
@@ -46,8 +46,9 @@ impl Config {
         })
     }
 
-    pub fn into_rules(self) -> Result<Vec<Rule>, regex::Error> {
-        self.rule
+    pub fn into_rules(self) -> Result<RuleSet, regex::Error> {
+        let rules = self
+            .rule
             .into_iter()
             .map(|rule_config| {
                 Rule::new(
@@ -59,7 +60,8 @@ impl Config {
                     rule_config.on_unfocus,
                 )
             })
-            .collect()
+            .collect();
+        RuleSet::new(rules)
     }
 }
 
@@ -67,69 +69,69 @@ impl Config {
 mod tests {
     use super::*;
 
-    fn parse(toml: &str) -> Vec<Rule> {
+    fn parse(toml: &str) -> RuleSet {
         toml::from_str::<Config>(toml).unwrap().into_rules().unwrap()
     }
 
     #[test]
     fn empty_config_produces_no_rules() {
-        let rules = parse("");
-        assert!(rules.is_empty());
+        assert!(parse("").is_empty());
     }
 
     #[test]
     fn rule_with_class_and_title_compiles() {
-        let rules = parse(r#"
+        let set = parse(r#"
             [[rule]]
             class = "^gamescope$"
             title = "Counter-Strike 2"
         "#);
-        assert_eq!(rules.len(), 1);
-        assert!(rules[0].matches("gamescope", "Counter-Strike 2"));
-        assert!(!rules[0].matches("other", "Counter-Strike 2"));
+        assert_eq!(set.len(), 1);
+        assert_eq!(set.matching("gamescope", "Counter-Strike 2").len(), 1);
+        assert!(set.matching("other", "Counter-Strike 2").is_empty());
     }
 
     #[test]
     fn rule_with_only_class_compiles() {
-        let rules = parse(r#"
+        let set = parse(r#"
             [[rule]]
             class = "^firefox$"
         "#);
-        assert_eq!(rules.len(), 1);
-        assert!(rules[0].matches("firefox", "any title"));
-        assert!(!rules[0].matches("other", "any title"));
+        assert_eq!(set.len(), 1);
+        assert_eq!(set.matching("firefox", "any title").len(), 1);
+        assert!(set.matching("other", "any title").is_empty());
     }
 
     #[test]
     fn commands_survive_round_trip() {
-        let rules = parse(r#"
+        let set = parse(r#"
             [[rule]]
             class = "^gamescope$"
             on_focus = ["hyprctl", "dispatch", "submap", "gaming"]
             on_unfocus = ["hyprctl", "dispatch", "submap", "reset"]
         "#);
-        assert_eq!(rules[0].on_focus(), &[
+        let matched = set.matching("gamescope", "anything");
+        assert_eq!(matched[0].on_focus(), &[
             "hyprctl".to_owned(), "dispatch".to_owned(),
             "submap".to_owned(), "gaming".to_owned(),
         ]);
-        assert_eq!(rules[0].on_unfocus(), &[
+        assert_eq!(matched[0].on_unfocus(), &[
             "hyprctl".to_owned(), "dispatch".to_owned(),
             "submap".to_owned(), "reset".to_owned(),
         ]);
-        assert!(rules[0].on_open().is_empty());
-        assert!(rules[0].on_close().is_empty());
+        assert!(matched[0].on_open().is_empty());
+        assert!(matched[0].on_close().is_empty());
     }
 
     #[test]
     fn multiple_rules_all_compile() {
-        let rules = parse(r#"
+        let set = parse(r#"
             [[rule]]
             class = "^gamescope$"
 
             [[rule]]
             class = "^firefox$"
         "#);
-        assert_eq!(rules.len(), 2);
+        assert_eq!(set.len(), 2);
     }
 
     #[test]

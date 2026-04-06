@@ -34,7 +34,7 @@ use hyprland::{
     event_listener::AsyncEventListener,
     prelude::*,
 };
-use rule::Rule;
+use rule::RuleSet;
 use state::{State, WindowInfo};
 use tracing::{error, info, warn};
 
@@ -59,7 +59,7 @@ async fn main() -> hyprland::Result<()> {
     let config_path = config_path_override.unwrap_or_else(Config::default_path);
     let config = Config::load(&config_path, is_explicit);
 
-    let rules: Arc<Vec<Rule>> = Arc::new(config.into_rules().unwrap_or_else(|error| {
+    let rules: Arc<RuleSet> = Arc::new(config.into_rules().unwrap_or_else(|error| {
         error!(%error, "invalid regex in config");
         std::process::exit(1);
     }));
@@ -105,7 +105,7 @@ async fn main() -> hyprland::Result<()> {
                 let address = data.window_address.to_string();
                 let info = WindowInfo::new(class.clone(), title.clone());
                 state.lock().unwrap().insert_open(address, info);
-                for rule in Rule::matching(&rules, &class, &title) {
+                for rule in rules.matching(&class, &title) {
                     hook_sender.enqueue(rule.on_open());
                 }
             })
@@ -123,7 +123,7 @@ async fn main() -> hyprland::Result<()> {
             Box::pin(async move {
                 let key = address.to_string();
                 if let Some(info) = state.lock().unwrap().remove_open(&key) {
-                    for rule in Rule::matching(&rules, info.class(), info.title()) {
+                    for rule in rules.matching(info.class(), info.title()) {
                         hook_sender.enqueue(rule.on_close());
                     }
                 }
@@ -147,10 +147,10 @@ async fn main() -> hyprland::Result<()> {
                 let new_class = new_info.class().to_owned();
                 let new_title = new_info.title().to_owned();
                 let previous_info = state.lock().unwrap().update_focus(new_info);
-                for rule in Rule::matching(&rules, previous_info.class(), previous_info.title()) {
+                for rule in rules.matching(previous_info.class(), previous_info.title()) {
                     hook_sender.enqueue(rule.on_unfocus());
                 }
-                for rule in Rule::matching(&rules, &new_class, &new_title) {
+                for rule in rules.matching(&new_class, &new_title) {
                     hook_sender.enqueue(rule.on_focus());
                 }
             })
