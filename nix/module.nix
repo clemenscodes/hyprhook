@@ -128,7 +128,7 @@ in {
       serviceConfig = {
         ExecStart = "${wrappedPackage}/bin/hyprhook";
         Restart = "on-failure";
-        PassEnvironment = "PATH";
+        Environment = "PATH=%h/.nix-profile/bin:/run/current-system/sw/bin:/run/wrappers/bin";
       };
     };
   };
